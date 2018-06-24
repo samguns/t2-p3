@@ -65,7 +65,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   std_y = std_pos[1];
   std_theta = std_pos[2];
 
-  for (Particle p : particles) {
+  for (auto &p : particles) {
     double new_x;
     double new_y;
     double new_theta;
@@ -117,6 +117,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   double sig_y = std_landmark[1];
   double gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
 
+  int idx = 0;
   for (auto &p : particles) {
     p.weight = 1.0;
 
@@ -128,7 +129,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
      * xm ​ =xp ​+ (cosθ × xc) − (sinθ × yc)
      * ym ​ =yp ​+ (sinθ × xc) + (cosθ × yc)
      */
-    for (auto &obs : observations) {
+    for (auto obs : observations) {
       LandmarkObs trans_obs = {};
       trans_obs.x = p.x + (cos(p.theta) * obs.x) - (sin(p.theta) * obs.y);
       trans_obs.y = p.y + (sin(p.theta) * obs.x) + (cos(p.theta) * obs.y);
@@ -140,7 +141,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       double nearest_distance = sensor_range;
       int association = 0;
 
-      for (auto &map_landmark : map_landmarks.landmark_list) {
+      for (auto map_landmark : map_landmarks.landmark_list) {
         double lm_x = map_landmark.x_f;
         double lm_y = map_landmark.y_f;
 
@@ -150,7 +151,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         if (distance < nearest_distance) {
           nearest_distance = distance;
-          association = map_landmark.id_i - 1;
+          association = map_landmark.id_i;
         }
       }
 
@@ -159,8 +160,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
        * particle's weight.
        */
       if (association != 0) {
-        double mu_x = map_landmarks.landmark_list[association].x_f;
-        double mu_y = map_landmarks.landmark_list[association].y_f;
+        double mu_x = map_landmarks.landmark_list[association-1].x_f;
+        double mu_y = map_landmarks.landmark_list[association-1].y_f;
 
         double exponent = -(pow(trans_obs.x - mu_x, 2) / (2 * sig_x * sig_x) +
             pow(trans_obs.y - mu_y, 2) / (2 * sig_y * sig_y));
@@ -168,6 +169,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         if (w > 0) {
           p.weight *= w;
         }
+      } else {
+        p.weight = 0;
       }
 
       associations.push_back(association);
@@ -176,7 +179,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     }
 
     SetAssociations(p, associations, sense_x, sense_y);
-    weights[p.id] = p.weight;
+    weights[idx] = p.weight;
+    idx++;
   }
 }
 
@@ -199,14 +203,14 @@ void ParticleFilter::resample() {
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
                                      const std::vector<double>& sense_x, const std::vector<double>& sense_y)
 {
-    //particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
-    // associations: The landmark id that goes along with each listed association
-    // sense_x: the associations x mapping already converted to world coordinates
-    // sense_y: the associations y mapping already converted to world coordinates
+  //particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
+  // associations: The landmark id that goes along with each listed association
+  // sense_x: the associations x mapping already converted to world coordinates
+  // sense_y: the associations y mapping already converted to world coordinates
 
-    particle.associations= associations;
-    particle.sense_x = sense_x;
-    particle.sense_y = sense_y;
+  particle.associations= associations;
+  particle.sense_x = sense_x;
+  particle.sense_y = sense_y;
 
   return particle;
 }
